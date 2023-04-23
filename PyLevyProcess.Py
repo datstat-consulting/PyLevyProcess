@@ -5,7 +5,7 @@ import scipy
 from fitter import Fitter
 import plotly.graph_objects as go
 
-class PyLevyProcess:
+class StochasticPriceModel:
     def __init__(self, liquid_data, illiquid_data = pd.Series([], dtype = float)):
         self.liquid = liquid_data
         self.liquid_returns = np.log(self.liquid) - np.log(self.liquid.shift(1))
@@ -31,18 +31,17 @@ class PyLevyProcess:
         self.selectedBest = selected_best
         #return selected_best
 
-    def simulate_gbm(self, So, mu, sigma, T, N, distChosen, distParams, diagnosticcorrelation, illiquid = False):
+    def simulateLevyProcess(self, So, mu, sigma, T, N, distChosen, distParams, diagnosticcorrelation, illiquid = False):
         distribution = getattr(scipy.stats, distChosen)
 
-        def GBMsimulatorUniVar(So, mu, sigma, T, N):
+        def LevySimulator(So, mu, sigma, T, N):
             S = np.zeros([T + 1, int(N)])
             S[0, :] = So
             for t in range(1, int(T) + 1):
                 newprices = []
                 for i in range(0, int(N)):
                     drift = mu - 0.5 * sigma**2
-                    # I forgot whether I used Ito's Lemma to derive this drift.
-                    # When making the function, I did use Ito's Lemma with the Ang et al model, but I forgot whether I accidentally overwrote it.
+                    # using Ito's Lemma, this drift formula works also for illiquid assets
                     Z1 = distribution.rvs(*distParams)
                     if illiquid == True:
                         Z2 = distribution.rvs(*distParams)
@@ -53,7 +52,7 @@ class PyLevyProcess:
                     S[t][i] = S[t - 1][i]*np.exp(drift + diffusion)
             return S[1:]
 
-        prices = GBMsimulatorUniVar(So, mu, sigma, T, N)
+        prices = LevySimulator(So, mu, sigma, T, N)
         return prices
 
     def illiquidModel(self, backtesting = False, horizon = 10, timeout = 120, N = 1000, train_size = 0.8):
@@ -85,7 +84,7 @@ class PyLevyProcess:
         print("Pearson correlation between liquid and illiquid asset is {}".format(diagnosticcorrelation))
         self.assetCorrelation = diagnosticcorrelation
 
-        prices = self.simulate_gbm(So=self.illiquid.iloc[-1], mu=training.mean(), sigma=training.std(), T=horizon, N=N, distChosen=distChosen, distParams=distParams, diagnosticcorrelation=diagnosticcorrelation)
+        prices = self.simulateLevyProcess(So=self.illiquid.iloc[-1], mu=training.mean(), sigma=training.std(), T=horizon, N=N, distChosen=distChosen, distParams=distParams, diagnosticcorrelation=diagnosticcorrelation)
         prices = pd.DataFrame(prices)
         #self.prices = pd.DataFrame(prices).mean(axis=1)
         self.lower_confidence = prices.quantile(0.05, axis=1)
@@ -114,7 +113,7 @@ class PyLevyProcess:
         distChosen = list(self.selectedBest.keys())[0]
         distParams = tuple(self.selectedBest[distChosen].values())
 
-        prices = self.simulate_gbm(So=self.liquid.iloc[-1], mu=training.mean(), sigma=training.std(), T=horizon, N=N, distChosen=distChosen, distParams=distParams, diagnosticcorrelation=1)
+        prices = self.simulateLevyProcess(So=self.liquid.iloc[-1], mu=training.mean(), sigma=training.std(), T=horizon, N=N, distChosen=distChosen, distParams=distParams, diagnosticcorrelation=1)
         prices = pd.DataFrame(prices)
         #self.prices = pd.DataFrame(prices).mean(axis=1)
         self.lower_confidence = prices.quantile(0.05, axis=1)
