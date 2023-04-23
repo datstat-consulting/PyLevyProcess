@@ -41,7 +41,8 @@ class StochasticPriceModel:
                 newprices = []
                 for i in range(0, int(N)):
                     drift = mu - 0.5 * sigma**2
-                    # using Ito's Lemma, this drift formula works also for illiquid assets
+                    # to be honest, I'm not sure if this drift term (for Geometric Brownian Motion) is the one I derived for a project in 2021 using Ito's Lemma.
+                    # backtesting shows that it works so I'm not touching it for now.
                     Z1 = distribution.rvs(*distParams)
                     if illiquid == True:
                         Z2 = distribution.rvs(*distParams)
