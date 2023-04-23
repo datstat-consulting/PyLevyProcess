@@ -3,6 +3,10 @@ Standard treatments of financial returns in Economic literature model them with 
 
 # Examples
 ## Preliminaries
+Import the class.
+```
+from PyLevyProcess import *
+```
 Use these functions along with the class itself, or use appropriate functions from other packages.
 ```
 def mape(y_true, y_pred):
