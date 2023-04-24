@@ -74,3 +74,4 @@ illiquid_model.assetCorrelation
 ```
 # References
 * Ang, A., Papanikolaou, D., & Westerfield, M. M. (2014). Portfolio choice with illiquid assets. Management Science, 60(11), 2737-2761.
+* Nolan, J. P. (2003). Modeling financial data with stable distributions. In Handbook of heavy tailed distributions in finance (pp. 105-130). North-Holland.
