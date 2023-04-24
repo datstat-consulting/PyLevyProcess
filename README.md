@@ -1,5 +1,13 @@
 # PyLevyProcess
-Standard treatments of financial returns in Economic literature model them with a normal distribution, leading to Geometric Brownian Motion as a standard model. However, Mandelbrot and others have found that financial returns are better modelled as a Levy process than with Normally distributed processes. `PyLevyProcess` automates work for modelling returns as Levy processes. 
+Standard treatments of financial returns in Economic literature model them with a normal distribution, leading to Geometric Brownian Motion as a standard model. However, Mandelbrot and others have found that financial returns are better modelled as a generalized Levy process than with Normally distributed processes.
+
+A **Lévy process** $X(t)$ is a stochastic process that has the following properties:
+- $X(0) = 0$ almost surely.
+- The process has independent increments, i.e., for any $0 \leq s < t$, the random variables $X(t) - X(s)$ are independent.
+- The process has stationary increments, i.e., the distribution of $X(t) - X(s)$ depends only on $t - s$.
+- The process has continuous paths, i.e., the function $t \mapsto X(t)$ is continuous almost surely.
+ 
+ Lévy processes are a general class of stochastic processes that include Brownian motion (Wiener process), Poisson processes, and many other stochastic processes used in finance, physics, and other fields. `PyLevyProcess` automates work for modelling returns as Levy processes. Note that you will have to do a serial correlation test yourself using a function like, for example, `statsmodels.stats.stattools.durbin_watson`.
 
 # Examples
 ## Preliminaries
