@@ -62,7 +62,7 @@ illiquid_model.illiquidModel(backtesting = True, timeout = 120, train_size = 0.8
 ```
 Use the same visualization functions as above, and get the needed properties. You may also get an additional property with illiquid assets.
 ```
-eth_model.assetCorrelation
+illiquid_model.assetCorrelation
 ```
 # References
 * Ang, A., Papanikolaou, D., & Westerfield, M. M. (2014). Portfolio choice with illiquid assets. Management Science, 60(11), 2737-2761.
