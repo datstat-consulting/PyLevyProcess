@@ -9,6 +9,10 @@ A **Lévy process** $X(t)$ is a stochastic process that has the following proper
  
  Lévy processes are a general class of stochastic processes that include Brownian motion (Wiener process), Poisson processes, and many other stochastic processes used in finance, physics, and other fields. `PyLevyProcess` automates work for modelling returns as Levy processes. Note that you will have to do a serial correlation test to verify whether increments are independent. You may use a function like, for example, `statsmodels.stats.stattools.durbin_watson`.
 
+## To-do
+
+- Replace Monte-Carlo method with Hamiltonian Monte-Carlo to ensure independent and stationary simulated increments.
+
 # Examples
 ## Preliminaries
 Import the class.
