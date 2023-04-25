@@ -11,7 +11,7 @@ A **Lévy process** $X(t)$ is a stochastic process that has the following proper
 
 ## To-do
 
-- Replace Monte-Carlo method with Hamiltonian Monte-Carlo to ensure independent and stationary simulated increments.
+- Replace direct Monte-Carlo method with Hamiltonian Monte-Carlo to ensure independent and stationary simulated increments.
 
 # Examples
 ## Preliminaries
