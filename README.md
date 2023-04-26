@@ -32,6 +32,73 @@ def train_test_split(data, train_size):
     return train, test
 ```
 It is also recommended to set a random seed for reproducibility.
+Use this function to fetch data:
+```
+def get_data(symbols, timeframe, start_date, end_date=None):
+    exchange = ccxt.cryptocom()
+    #since = exchange.parse8601(start_date)
+
+    if end_date != None:
+        end_date_unix = exchange.parse8601(end_date)
+
+    closing_prices = pd.DataFrame()
+
+    for symbol in symbols:
+        since = exchange.parse8601(start_date)
+        data = []
+        while True:
+            candles = exchange.fetch_ohlcv(symbol, timeframe, since)
+            if not candles:
+                break
+            data.extend(candles)
+            since = candles[-1][0] + 1
+
+            if end_date != None and since >= end_date_unix:
+                break
+
+        df = pd.DataFrame(data, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+        df.set_index('timestamp', inplace=True)
+        closing_prices[symbol] = df['close']
+
+    return closing_prices
+```
+For data already fetched by the above function, use this function to update it.
+```
+def update_data(symbol, timeframe, csv_file):
+    # Read the existing CSV file into a DataFrame
+    existing_data = pd.read_csv(csv_file, index_col='timestamp', parse_dates=True)
+
+    # Get the last timestamp in the DataFrame
+    last_timestamp = existing_data.index[-1]
+
+    # Convert the last timestamp to ISO 8601 format
+    start_date = last_timestamp.strftime('%Y-%m-%dT%H:%M:%SZ')
+
+    # Fetch new data from the exchange starting after the last timestamp
+    new_data = get_data(symbol, timeframe, start_date)
+
+    # Append the new data to the existing DataFrame
+    updated_data = existing_data.append(new_data)
+
+    # Save the updated DataFrame to the CSV file
+    updated_data.to_csv(csv_file)
+```
+We use cryptocurrency as an example, but the Levy Process simulator can be used for any asset class.
+```
+# Liquid and Illiquid Asset:
+symbols = ['ETH/USD', 'BIFI/USD']
+timeframe = '1d'
+start_date = '2022-01-01T00:00:00Z'
+end_date = '2023-04-20T00:00:00Z'
+
+# Initial fetch data
+closing_prices = get_data(symbols, timeframe, start_date, end_date)
+closing_prices.to_csv('IlliquidAssetData.csv')
+
+# Update already fetched data
+update_data(symbols, timeframe, "IlliquidAssetData.csv")
+```
 ## Liquid Asset price
 We use Ethereum as an example. It is assumed that closing prices are stored in a `pandas` DataFrame called `liquid` with no empty rows.
 
