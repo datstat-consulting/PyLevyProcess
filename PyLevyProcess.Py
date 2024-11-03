@@ -135,6 +135,7 @@ class StochasticPriceModel:
 
         self.lower_confidence = None
         self.median_confidence = None
+        self.average_confidence = None  # Added for average calculation
         self.upper_confidence = None
         self.selectedBest = None  # Now holds stable parameters
         self.backtestMode = False
@@ -226,7 +227,6 @@ class StochasticPriceModel:
         penalty = violation * 1e10  # High penalty for violations
 
         # Theoretical characteristic function
-        # To handle differentiable operations, we use torch.where
         pi = torch.tensor(np.pi, dtype=torch.float)
 
         # Avoid division by zero or log(0)
@@ -234,13 +234,21 @@ class StochasticPriceModel:
         thetas = torch.clamp(thetas, min=eps)
 
         # Compute terms based on alpha
-        if alpha == 1.0:
-            # Handle alpha = 1 separately
-            term_real = -gamma * torch.abs(thetas)
-            term_imag = -gamma * torch.abs(thetas) * (beta * (2 / pi)) * torch.sign(thetas) * torch.log(thetas)
-        else:
-            term_real = -gamma**alpha * torch.abs(thetas)**alpha * (1)
-            term_imag = -gamma**alpha * torch.abs(thetas)**alpha * (beta * torch.sign(thetas) * torch.tan(pi * alpha / 2))
+        # Handle alpha = 1 separately
+        is_alpha_one = (alpha == 1.0).float()
+        not_alpha_one = 1.0 - is_alpha_one
+
+        # Terms for alpha != 1
+        term_real_non_one = -gamma**alpha * torch.abs(thetas)**alpha * 1.0
+        term_imag_non_one = -gamma**alpha * torch.abs(thetas)**alpha * (beta * torch.sign(thetas) * torch.tan(pi * alpha / 2))
+
+        # Terms for alpha == 1
+        term_real_one = -gamma * torch.abs(thetas)
+        term_imag_one = -gamma * torch.abs(thetas) * (beta * (2 / pi)) * torch.sign(thetas) * torch.log(torch.abs(thetas))
+
+        # Combine terms using where
+        term_real = term_real_non_one * not_alpha_one + term_real_one * is_alpha_one
+        term_imag = term_imag_non_one * not_alpha_one + term_imag_one * is_alpha_one
 
         # Theoretical CF
         phi_real = torch.exp(term_real) * torch.cos(term_imag)
@@ -254,7 +262,7 @@ class StochasticPriceModel:
         loss_real = (ecf_real - phi_real)**2
         loss_imag = (ecf_imag - phi_imag)**2
 
-        # Total loss
+        # Total loss with penalty
         loss = torch.sum(loss_real + loss_imag) + torch.sum(penalty)
 
         # Log posterior is negative loss
@@ -334,6 +342,16 @@ class StochasticPriceModel:
         return pd.DataFrame(prices)
 
     def illiquidModel(self, backtesting=False, horizon=10, timeout=120, N=1000, train_size=0.8):
+        """
+        Model the illiquid asset using HMC and Lévy stable parameters.
+
+        Args:
+            backtesting (bool): Whether to perform backtesting.
+            horizon (int): Forecast horizon.
+            timeout (int): Timeout for ECF fitting.
+            N (int): Number of simulation paths.
+            train_size (float): Proportion of data to use for training.
+        """
         self.lastAssetType = "illiquid"
         if not backtesting:
             self.backtestMode = False
@@ -383,12 +401,23 @@ class StochasticPriceModel:
         # Simulate price paths using sampled parameters
         prices = self.simulate_levy_process(alpha_samples, beta_samples, gamma_samples, delta_samples, So=self.illiquid.iloc[-1], T=horizon, N=N)
 
-        # Calculate confidence intervals
+        # Calculate confidence intervals and average
         self.lower_confidence = prices.quantile(0.05, axis=1)
         self.median_confidence = prices.quantile(0.5, axis=1)
+        self.average_confidence = prices.mean(axis=1)  # Compute average
         self.upper_confidence = prices.quantile(0.95, axis=1)
 
     def liquidModel(self, backtesting=False, horizon=10, timeout=120, N=1000, train_size=0.8):
+        """
+        Model the liquid asset using HMC and Lévy stable parameters.
+
+        Args:
+            backtesting (bool): Whether to perform backtesting.
+            horizon (int): Forecast horizon.
+            timeout (int): Timeout for ECF fitting.
+            N (int): Number of simulation paths.
+            train_size (float): Proportion of data to use for training.
+        """
         self.lastAssetType = "liquid"
         if not backtesting:
             self.backtestMode = False
@@ -429,17 +458,25 @@ class StochasticPriceModel:
         # Simulate price paths using sampled parameters
         prices = self.simulate_levy_process(alpha_samples, beta_samples, gamma_samples, delta_samples, So=self.liquid.iloc[-1], T=horizon, N=N)
 
-        # Calculate confidence intervals
+        # Calculate confidence intervals and average
         self.lower_confidence = prices.quantile(0.05, axis=1)
         self.median_confidence = prices.quantile(0.5, axis=1)
+        self.average_confidence = prices.mean(axis=1)  # Compute average
         self.upper_confidence = prices.quantile(0.95, axis=1)
 
     def plotEstimates(self, assetType="liquid"):
+        """
+        Plot the training data, test data (if backtesting), median and average predictions, and confidence intervals.
+
+        Args:
+            assetType (str): Type of asset ("liquid" or "illiquid").
+        """
         if self.backtestMode:
             axis = np.arange(len(self.train) + len(self.test))
             plt.plot(axis[:len(self.train)], self.train, c="blue", label="Training Data")
             plt.plot(axis[len(self.train):], self.test, c="green", label="Test Data")
             plt.plot(axis[len(self.train):], self.median_confidence, c="red", label="Median Prediction")
+            plt.plot(axis[len(self.train):], self.average_confidence, c="orange", label="Average Prediction")  # Plot average
             plt.fill_between(axis[len(self.train):], self.lower_confidence, self.upper_confidence, color="red", alpha=0.2, label="5th-95th Percentile")
             plt.legend()
             plt.show()
@@ -456,11 +493,21 @@ class StochasticPriceModel:
             axis = np.arange(len(train) + len(self.median_confidence))
             plt.plot(axis[:len(train)], train, c="blue", label="Training Data")
             plt.plot(axis[len(train):], self.median_confidence, c="red", label="Median Prediction")
+            plt.plot(axis[len(train):], self.average_confidence, c="orange", label="Average Prediction")  # Plot average
             plt.fill_between(axis[len(train):], self.lower_confidence, self.upper_confidence, color="red", alpha=0.2, label="5th-95th Percentile")
             plt.legend()
             plt.show()
 
     def generateEstimateFigure(self, assetType="liquid"):
+        """
+        Generate an interactive plot with training data, test data (if backtesting), median and average predictions, and confidence intervals.
+
+        Args:
+            assetType (str): Type of asset ("liquid" or "illiquid").
+
+        Returns:
+            plotly.graph_objects.Figure: Interactive plot figure.
+        """
         fig = go.Figure()
 
         if self.backtestMode:
@@ -473,6 +520,7 @@ class StochasticPriceModel:
                 train = self.illiquid
 
         median_confidence = self.median_confidence
+        average_confidence = self.average_confidence  # Retrieve average
         lower_confidence = self.lower_confidence
         upper_confidence = self.upper_confidence
 
@@ -487,6 +535,9 @@ class StochasticPriceModel:
 
         # Plot the median confidence
         fig.add_trace(go.Scatter(x=list(range(len(train), len(train) + len(median_confidence))), y=median_confidence, mode='lines', name='Median Prediction', line=dict(color='red')))
+
+        # Plot the average confidence
+        fig.add_trace(go.Scatter(x=list(range(len(train), len(train) + len(average_confidence))), y=average_confidence, mode='lines', name='Average Prediction', line=dict(color='orange')))  # Plot average
 
         # Plot the confidence intervals
         fig.add_trace(go.Scatter(
